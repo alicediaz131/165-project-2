@@ -32,11 +32,14 @@ def first_fit(items: list[float], assignment: list[int], free_space: list[float]
 			#print(tree.root.brc)
 			print("appending")
 			free_space.append(1.0)
-			tree.insert(len(free_space)-1, 1.0)
+			x = tree.insert(len(free_space)-1, 1.0)
+			max(x.val, x.left.brc if x.left != None else 0, x.right.brc if x.right != None else 0)
 		ff_index = tree.get_first_fit(items[i])
 		free_space[ff_index] -= items[i]
+		free_space[ff_index] = round(free_space[ff_index], 5)
 		assignment[i] = ff_index
 		#free_space[j] -= items[i]
+	print(tree)
 
 items = [0.1, 0.8, 0.3, 0.5, 0.7, 0.2, 0.6, 0.4]
 assignment = [0]*len(items)

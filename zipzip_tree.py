@@ -76,7 +76,7 @@ class Node:
 	def __init__(self, key: KeyType, val: ValType, rank: Rank):
 		self.key = key #this is the bin index
 		self.val = val #remaining size of the bin? so this needs to be reduced and updated when more is added to the tree...
-		self.brc = val #must be updated once placed in tree...
+		self.brc = None #must be updated once placed in tree...
 		self.rank = rank
 		self.left = None
 		self.right = None
@@ -126,6 +126,7 @@ class ZipZipTree:
 			else:
 				curr = curr.right #else look right.
 
+		#placing x in the tree...
 		if (curr == self.root): #if current is the root, we need to make our newNode the new root.
 			self.root = x #this could be because it's null or x had a bigger rank, or tied rank and bigger val.
 			#print(f"root == {x}")
@@ -134,10 +135,11 @@ class ZipZipTree:
 		else: #else it's bigger or equal
 			prev.right = x #so replace x with right
 		
+		#set curr to become one of x's children	
 		#if current did end up exiting because it was null, we were at the bottom, so we can return.
 		if curr == None:
 			self.set_subtree_brc(self.root)
-			return
+			return x
 		#however, if we weren't at the bottom, we have to replace the subtree at curr
 		if key < curr.key: #if our key is less than the key we're replacing
 			x.right = curr #place that current on the right
@@ -145,6 +147,7 @@ class ZipZipTree:
 			x.left = curr #otherwise, place that current on the left
 		prev = x #now we have to track starting from our new key.
 
+		#curr still equals the node x replaced...
 		while(curr != None): #do this until we hit the bottom
 			fix = prev #we have to save this position to reference it later for a rebalance
 			if curr.key < key: #if we replaced curr to be on x's left
@@ -152,7 +155,7 @@ class ZipZipTree:
 					prev = curr #save our current
 					curr = curr.right #set current to it's own right child
 					if(curr == None or curr.key > key): #if curr greater than our key, we have to use it
-						break #as x's new right, so break and jump down.
+						break #as x's new right, so break and jump down. 
 			else:
 				while(True):#same stuff but we were placed on x's right.
 					prev = curr
@@ -163,12 +166,14 @@ class ZipZipTree:
 											#if fix equals x, and parent of current is bigger
 											#place the key on x's left.
 											#this same process can repeat but for the parent.
-			if fix.key > key or (fix == x and prev.key > key):
+			if fix.key > key or (fix == x and prev.key > key): #prev is the node x replaced and pushed down...
 				fix.left = curr
 			else:
 				fix.right = curr
 		#self.set_subtree_brc(x)
 		self.set_subtree_brc(self.root)
+
+		return x
 		
 # remove(): removes item with parameter key from tree.
 #           you can assume that the item exists in the tree.
@@ -332,6 +337,38 @@ class ZipZipTree:
 		self.set_subtree_brc(root.right)
 		root.brc = max(root.val, root.left.brc if root.left != None else 0, root.right.brc if root.right != None else 0)
 	
+	def find_best_fit(self, key: KeyType, free_space: list[float]):
+		#find the smallest item bigger or equal to key...
+		#if key is bigger, then avoid it...
+		#if key is smaller... then what?
+		curr = self.root
+		candidate = None
+		while(curr != None):
+			if(curr.key < key):
+				curr = curr.right #the current node is too small to fit the key, leave candidate untouched and look right...
+			else:
+				candidate = curr #candidate can now equal curr because it's greater than or equal to key.
+				curr = curr.left
+		#so long as candidate doesn't equal None, we found a viable candidate
+		index = None
+		if candidate == None:
+			free_space.append(1.0-key)
+			index = len(free_space)-1
+			free_space[index] = round(free_space[index],5)
+			self.insert(free_space[index], index)
+		else:
+			index = candidate.val
+			self.remove(candidate.key)
+			free_space[index] -= key
+			free_space[index] = round(free_space[index],5)
+			if (free_space[index]) > 0.0:
+				x = self.insert(free_space[index], candidate.val) ##reinsert node with updated capactiy and the same value
+				x.brc = max(x.key, x.left.brc if x.left != None else 0, x.right.brc if x.right != None else 0)
+		#if no candidate, then insert
+		
+
+		return index
+
 	#need an alg that finds left most node that fits fast
 	def get_first_fit(self, val: ValType) -> int:
 		curr = self.root
@@ -352,7 +389,8 @@ class ZipZipTree:
 				#if no to either, and curr.val >= item, place it in this node.
 			elif curr.val >= val:
 				curr.val -= val
-				#curr.brc = max(curr.val, curr.left.brc if curr.left != None else 0, curr.right.brc if curr.right != None else 0)
+				curr.val = round(curr.val, 5)
+				curr.brc = max(curr.val, curr.left.brc if curr.left != None else 0, curr.right.brc if curr.right != None else 0)
 				self.set_subtree_brc(self.root)
 				return curr.key
 			else: #else, the value must be at right. set curr to curr.right
@@ -367,39 +405,36 @@ class ZipZipTree:
 		
 		#keep going left until the brc is bigger than value, then check prev right.
 		
-zzt = ZipZipTree(30)
+# zzt = ZipZipTree(30)
 
-zzt.insert(1, 2)
-#print(zzt.root)
-print(zzt)
-zzt.insert(3, 4)
+# zzt.insert(1, 2)
+# #print(zzt.root)
+# print(zzt)
+# zzt.insert(3, 4)
 
-print(zzt)
-zzt.insert(5, 12)
+# print(zzt)
+# zzt.insert(5, 12)
 
-print(zzt)
-zzt.insert(56, 5)
+# print(zzt)
+# zzt.insert(56, 5)
 
-print(zzt)
-zzt.insert(22, 16)
+# print(zzt)
+# zzt.insert(22, 16)
 
-print(zzt)
-zzt.insert(52, 23)
-zzt.insert(55, 14)
-zzt.insert(59, 19)
-zzt.insert(85, 1)
-zzt.insert(-115, 15)
-zzt.insert(442, 154)
-print(f"count: {zzt.get_size()}")
+# print(zzt)
+# zzt.insert(52, 23)
+# zzt.insert(55, 14)
+# zzt.insert(59, 19)
+# zzt.insert(85, 1)
+# zzt.insert(-115, 15)
+# zzt.insert(442, 154)
+# print(f"count: {zzt.get_size()}")
 
-
-#print(zzt.root)
-#print(zzt.nodes[0])
-print(zzt)
-print(zzt.find(56))
-print(zzt.find(56))
-print(zzt.find(56))
-height = zzt.get_height()
+# print(zzt)
+# print(zzt.find(56))
+# print(zzt.find(56))
+# print(zzt.find(56))
+# height = zzt.get_height()
 #print(height)
 
 
