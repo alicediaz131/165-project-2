@@ -1,5 +1,7 @@
 # Example file: next_fit.py
 from zipzip_tree import ZipZipTree
+from tim_sort import tim_sort
+
 # explanations for member functions are provided in requirements.py
 
 #For all bin packing functions:
@@ -25,31 +27,39 @@ def first_fit(items: list[float], assignment: list[int], free_space: list[float]
 	tree = ZipZipTree(len(items))
 	j = 0
 	free_space.append(1.0)
-	tree.insert(0, 1.0)
+	tree.insert(0, 1.0, None, 1.0)
 	#tree.insert(0, 1.0)
 	for i in range(0, len(items)):
 		if(tree.root.brc < items[i]):
 			#print(tree.root.brc)
-			print("appending")
+			#print("appending")
 			free_space.append(1.0)
-			x = tree.insert(len(free_space)-1, 1.0)
-			max(x.val, x.left.brc if x.left != None else 0, x.right.brc if x.right != None else 0)
+			#xbrc = max(1.0, x.left.brc if x.left != None else 0, x.right.brc if x.right != None else 0)
+			x = tree.insert(len(free_space)-1, 1.0, None, 1.0)
 		ff_index = tree.get_first_fit(items[i])
+		#if (ff_index == None):
+			#print(items[i])
+			#print(tree.root.brc)
+			#print(tree)
 		free_space[ff_index] -= items[i]
-		free_space[ff_index] = round(free_space[ff_index], 5)
+		free_space[ff_index] = round(free_space[ff_index], 8)
 		assignment[i] = ff_index
 		#free_space[j] -= items[i]
-	print(tree)
+	#print(tree)
 
-items = [0.1, 0.8, 0.3, 0.5, 0.7, 0.2, 0.6, 0.4]
-assignment = [0]*len(items)
-free_space = []
+def first_fit_decreasing(items: list[float], assignment: list[int], free_space: list[float]):
+	tim_sort(items)
+	first_fit(items, assignment, free_space)
 
-first_fit(items, assignment, free_space)
+# items = [0.8, 0.5, 0.7, 0.6, 0.4]
+# assignment = [0]*len(items)
+# free_space = []
 
-print(items)
-print(assignment)
-print(free_space)
+# first_fit_decreasing(items, assignment, free_space)
+
+# print(items)
+# print(assignment)
+# print(free_space)
 	#need an alg that checks left most subtree first
 	#repeat the keep going left thing
 	#we want LEFT MOST node that can fit the thing, so we only go right once we're out of lefts.
@@ -61,3 +71,14 @@ print(free_space)
 	#else, the value must be at right. set curr to curr.right
 	
 	#keep going left until the brc is bigger than value, then check prev right.
+
+
+# items2 = [0.1, 0.8, 0.3, 0.5, 0.7, 0.2, 0.6, 0.4]
+# assignment2 = [0]*len(items)
+# free_space2 = []
+
+# first_fit_decreasing(items2, assignment2, free_space2)
+
+#print(items2)
+#print(assignment2)
+#print(free_space2)

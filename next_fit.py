@@ -29,14 +29,14 @@ def next_fit(items: list[float], assignment: list[int], free_space: list[float])
 			free_space.append(1.0)
 		assignment[i] = j
 		free_space[j] -= items[i]
-		free_space[j] = round(free_space[j], 5)
+		free_space[j] = round(free_space[j], 8)
 
-items = [0.1, 0.8, 0.3, 0.5, 0.7, 0.2, 0.6, 0.4]
-assignment = [0]*len(items)
-free_space = []
+# items = [0.1, 0.8, 0.3, 0.5, 0.7, 0.2, 0.6, 0.4]
+# assignment = [0]*len(items)
+# free_space = []
 
-next_fit(items, assignment, free_space)
+# next_fit(items, assignment, free_space)
 
-print(items)
-print(assignment)
-print(free_space)
+# print(items)
+# print(assignment)
+# print(free_space)

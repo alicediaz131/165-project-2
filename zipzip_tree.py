@@ -4,6 +4,7 @@
 
 import random
 import math
+from functools import total_ordering
 
 #from __future__ import annotations
 
@@ -21,42 +22,51 @@ ValType = TypeVar('ValType')
 # Rank is a container representing each node's rank, both geometric and uniform.
 #           If using an earlier form of Python, you can use a named tuple instead.
 
+@total_ordering
 class Rank:
 	geometric_rank = 0
 	uniform_rank = 0
-	def __init__(self):
-		self.geometric_rank = 0
-		self.uniform_rank = 0
+	def __init__(self, geo = 0, uni = 0):
+		self.geometric_rank = geo
+		self.uniform_rank = uni
+
 
 	def __eq__(self, other):
+		if(other == None):
+			return False
 		return self.geometric_rank == other.geometric_rank and self.uniform_rank == other.uniform_rank
 	
-	def __ne__(self, other):
-		return self.geometric_rank != other.geometric_rank and self.uniform_rank != other.uniform_rank
 	
-	def __gt__(self, other):
-		if (self.geometric_rank > other.geometric_rank):
-			return True
-		elif self.geometric_rank == other.geometric_rank:
-			return self.uniform_rank > other.uniform_rank
-		else:
-			return False
-		
 	def __lt__(self, other):
-		if (self.geometric_rank < other.geometric_rank):
-			return True
-		elif self.geometric_rank == other.geometric_rank:
-			return self.uniform_rank < other.uniform_rank
-		else:
+		if other is None:
 			return False
+		if self.geometric_rank == other.geometric_rank:
+			return self.uniform_rank < other.uniform_rank
+		return self.geometric_rank < other.geometric_rank
 	
-	def __ge__(self, other):
-		return self > other or self == other
+	# def __gt__(self, other):
+	# 	if (self.geometric_rank > other.geometric_rank):
+	# 		return True
+	# 	elif self.geometric_rank == other.geometric_rank:
+	# 		return self.uniform_rank > other.uniform_rank
+	# 	else:
+	# 		return False
+		
+	# def __lt__(self, other):
+	# 	if (self.geometric_rank < other.geometric_rank):
+	# 		return True
+	# 	elif self.geometric_rank == other.geometric_rank:
+	# 		return self.uniform_rank < other.uniform_rank
+	# 	else:
+	# 		return False
 	
-	def __le__(self, other):
-		return self < other or self == other
+	# def __ge__(self, other):
+	# 	return self > other or self == other
+	
+	# def __le__(self, other):
+	# 	return self < other or self == other
 
-
+@total_ordering
 
 class Node:
 	rank: Rank #this determines the node's height in the tree. if we're both geo rank 3, but i have a higher uniform
@@ -73,15 +83,42 @@ class Node:
 	#how do i quickly traverse to find the best fit/first fit? ahhh
 	#best fit: storing bins by order by remaining capacity as search key
 	#first fit: ordering of the tree is by bin index
-	def __init__(self, key: KeyType, val: ValType, rank: Rank):
+	def __init__(self, key: KeyType, val: ValType, rank: Rank, brc):
 		self.key = key #this is the bin index
 		self.val = val #remaining size of the bin? so this needs to be reduced and updated when more is added to the tree...
-		self.brc = None #must be updated once placed in tree...
+		self.brc = brc #must be updated once placed in tree...
 		self.rank = rank
 		self.left = None
 		self.right = None
 	def __str__(self):
 		return (f"geom: {self.rank.geometric_rank}, unif: {self.rank.uniform_rank}, key: {self.key}, left: {self.left if self.left == None else self.left.key}, right: {self.right if self.right == None else self.right.key}, val: {self.val}, brc: {self.brc} ")
+	
+	def __eq__(self, other):
+		if(other == None):
+			return False
+		return self.rank == other.rank and self.key == other.key
+	
+	def __lt__(self, other):
+		if(other == None):
+			return False
+		
+		if self.rank == other.rank:
+			return self.key > other.key
+		
+		return self.rank < other.rank
+		
+
+	
+	
+def get_priority(node1: Node, node2: Node):
+	if node1.rank < node2.rank:
+		return False
+	
+	if node1.rank > node2.rank:
+		return True
+	
+	return node1.key < node2.key
+
 
 class ZipZipTree:
 # ZipZipTree(): constructs the zip-zip tree with a specific capacity.
@@ -109,10 +146,11 @@ class ZipZipTree:
 # insert(): inserts item with parameter key, value, and rank into tree.
 #           if rank is not provided, a random rank should be selected by using get_random_rank().
 
-	def insert(self, key: KeyType, val: ValType, rank: Rank = None):
+	def insert(self, key: KeyType, val: ValType, rank = None, brc = None):
+		brc_list = []
 		if (rank == None):
 			rank = self.get_random_rank()
-		x = Node(key, val, rank)
+		x = Node(key, val, rank, brc)
 		#self.nodes.append(newNode)
 		curr = self.root
 		prev = None
@@ -120,6 +158,7 @@ class ZipZipTree:
 		#go through current until rank >= current's rank (once we find where rank is bigger, we know where to put it)
 		# or rank != current's rank and key <= current key (in the very rare chance ranks are equal, use key as a comparison)
 		while curr != None and (rank < curr.rank or (rank == curr.rank and key > curr.key)):
+			brc_list.append(curr)
 			prev = curr #we're gonna change current, so save previous
 			if (key < curr.key): #rank isn't bigger, so traverse using key.
 				curr = curr.left #look left if our key is smaller than current's
@@ -129,7 +168,6 @@ class ZipZipTree:
 		#placing x in the tree...
 		if (curr == self.root): #if current is the root, we need to make our newNode the new root.
 			self.root = x #this could be because it's null or x had a bigger rank, or tied rank and bigger val.
-			#print(f"root == {x}")
 		elif(key < prev.key): #else current is the root, but our key is smaller than the parent,
 			prev.left = x #then replace left with x
 		else: #else it's bigger or equal
@@ -138,7 +176,10 @@ class ZipZipTree:
 		#set curr to become one of x's children	
 		#if current did end up exiting because it was null, we were at the bottom, so we can return.
 		if curr == None:
-			self.set_subtree_brc(self.root)
+			#self.set_subtree_brc(self.root)
+			#print(f'brc list 0 is {brc_list[0]}')
+			if len(brc_list) != 0:
+				self.set_brc_list(brc_list)
 			return x
 		#however, if we weren't at the bottom, we have to replace the subtree at curr
 		if key < curr.key: #if our key is less than the key we're replacing
@@ -153,12 +194,14 @@ class ZipZipTree:
 			if curr.key < key: #if we replaced curr to be on x's left
 				while(True): #we need to check current's right, because that will become x's right if it's greater than x.
 					prev = curr #save our current
+					brc_list.append(curr)
 					curr = curr.right #set current to it's own right child
 					if(curr == None or curr.key > key): #if curr greater than our key, we have to use it
 						break #as x's new right, so break and jump down. 
 			else:
 				while(True):#same stuff but we were placed on x's right.
 					prev = curr
+					brc_list.append(curr)
 					curr = curr.left #check current's left
 					if(curr == None or curr.key < key):#if curr is less than our key, we have to use it
 						break #as x's new left
@@ -168,24 +211,34 @@ class ZipZipTree:
 											#this same process can repeat but for the parent.
 			if fix.key > key or (fix == x and prev.key > key): #prev is the node x replaced and pushed down...
 				fix.left = curr
+				brc_list.append(fix)
 			else:
 				fix.right = curr
+				brc_list.append(fix)
 		#self.set_subtree_brc(x)
-		self.set_subtree_brc(self.root)
-
+		#self.set_subtree_brc(self.root)
+		#print(f'brc list len-1 is {brc_list[len(brc_list)-1]}, size is {len(brc_list)}')
+		if len(brc_list) != 0:
+			self.set_brc_list(brc_list)
 		return x
 		
 # remove(): removes item with parameter key from tree.
 #           you can assume that the item exists in the tree.
 	def remove(self, key: KeyType):
+		brc_list = []
 		curr = self.root
 		prev = None
 		while key != curr.key: #search until we find the key
 			prev = curr
+			brc_list.append(curr)
+			# if key == curr.key:
+			# 	curr = self.find_val(curr, key, val)
+			# 	break
 			if key < curr.key:
 				curr = curr.left
 			else:
 				curr = curr.right
+		x = curr
 		#we found it, now we save the left and right of what's being deleted.
 		left = curr.left
 		right = curr.right
@@ -194,25 +247,27 @@ class ZipZipTree:
 			curr = right
 		elif right == None: #if there's a left but no right, set curr to it's left
 			curr = left
-		elif left.rank >= right.rank: #if there's a left and a right, see who's rank is higher and set curr to that.
+		elif left >= right: #if there's a left and a right, see who's rank is higher and set curr to that.
 			curr = left
 		else:
 			curr = right
 
 		#prev is the node just before the node to be deleted.
 		#curr is the node to be put in it's place.
-		x = curr
-		if self.root.key == key:
+		#x = curr
+		if self.root == x:
 			self.root = curr
 		elif key < prev.key:
-			prev.left = curr
+			prev.left = curr #save the removed key's parent to be connected to left or right...
 		else:
 			prev.right = curr
-
-		while left != None and right != None:
-			if left.rank >= right.rank:
+		#brc_list.append(curr)
+		#as of this point, left and right are still the removed nodes left and right
+		while left != None and right != None: 
+			if left >= right:
 				while(True):
 					prev = left
+					brc_list.append(left)
 					left = left.right
 					if (left == None or left.rank < right.rank):
 						break
@@ -220,16 +275,31 @@ class ZipZipTree:
 			else:
 				while(True):
 					prev = right
+					brc_list.append(right)
 					right = right.left
 					if (right == None or left.rank >= right.rank):
 						break
 				prev.left = left
-		self.set_subtree_brc(self.root)
+		#self.set_subtree_brc(self.root)
 		#self.set_subtree_brc(x)
+		if len(brc_list) != 0:
+			self.set_brc_list(brc_list)
 
 # find(): returns the value of item with parameter key.
 #         you can assume that the item exists in the tree.
-
+	def find_val(self, root: Node, key: KeyType, val: ValType):
+		if root == None or root.key != key:
+			return None
+		if root.val == val:
+			return root
+		right = self.find_val(root.right, key, val)
+		left = self.find_val(root.left, key, val)
+		if right != None:
+			return right
+		elif left != None:
+			return left
+		return None
+		
 	def find(self, key: KeyType) -> ValType:
 		curr = self.root
 		while(curr != None and curr.key != key):
@@ -250,30 +320,16 @@ class ZipZipTree:
 		count += self.count_subtree(0, root.left)
 		count += self.count_subtree(0, root.right)
 		return count
-# get_height(): returns the height of the tree.
+
 
 	def get_height(self) -> int:
-		height = 0
-
-		print("inside get height")
-		height = self.calculate_levels(0, 0, self.root)
-		
-		#print(f"height is {height}")
-		return height
+		return self.calculate_height(self.root)
 	
-	def calculate_levels(self, pathHeight: int, height: int, root: Node) -> int:
-		#print(f"root is {root}, pathheight is {pathHeight}")
-		if root == None:
-			return pathHeight
-		pathHeight += 1
-		if (pathHeight > height):
-			height = pathHeight
-
-		heightLeft = pathHeight
-		heightRight = pathHeight
-
-		return max(self.calculate_levels(heightLeft, height, root.left), self.calculate_levels(heightRight, height, root.right))
-		#return max(1,2)
+	def calculate_height(self, root):
+		if root is None:
+			return -1
+		
+		return 1 + max(self.calculate_height(root.left), self.calculate_height(root.right))
 
 
 # get_depth(): returns the depth of the item with parameter key.
@@ -288,7 +344,8 @@ class ZipZipTree:
 				curr = curr.right
 			else:
 				curr = curr.left
-		return curr.val
+		return depth
+
 
 	def __str__(self):
 		result = []
@@ -335,35 +392,51 @@ class ZipZipTree:
 			return
 		self.set_subtree_brc(root.left)
 		self.set_subtree_brc(root.right)
-		root.brc = max(root.val, root.left.brc if root.left != None else 0, root.right.brc if root.right != None else 0)
+		root.brc = max(root.val if root.val != None else 0, root.left.brc if root.left != None else 0, root.right.brc if root.right != None else 0)
+
+	def set_brc_list(self, brc_list):
+		#for i in range(len(brc_list)-1, -1, -1):
+		for node in reversed(brc_list):
+			if(node.brc == None):
+				return
+			#print(f'node {node} in brc_list')
 	
+			node.brc = max(node.val, node.left.brc if (node.left != None and node.left.brc != None) else 0.0, node.right.brc if node.right != None and node.right.brc != None else 0.0)
+		#print("end set brc list")
+
 	def find_best_fit(self, key: KeyType, free_space: list[float]):
 		#find the smallest item bigger or equal to key...
 		#if key is bigger, then avoid it...
 		#if key is smaller... then what?
 		curr = self.root
 		candidate = None
+		
 		while(curr != None):
-			if(curr.key < key):
+			if(curr.key[0] < key):
 				curr = curr.right #the current node is too small to fit the key, leave candidate untouched and look right...
+			elif(curr.key == key):
+				candidate = curr
+				break
 			else:
 				candidate = curr #candidate can now equal curr because it's greater than or equal to key.
-				curr = curr.left
+				#if free_space[candidate.val] < 0:
+					#print(f"candidate key:{candidate.key}, freespace[cand.val]: {free_space[candidate.val]}")
+				curr = curr.left #look left for a better fit
 		#so long as candidate doesn't equal None, we found a viable candidate
 		index = None
 		if candidate == None:
 			free_space.append(1.0-key)
 			index = len(free_space)-1
-			free_space[index] = round(free_space[index],5)
-			self.insert(free_space[index], index)
+			free_space[index] = round(free_space[index], 8)
+			self.insert([free_space[index],index], index, None, None)
 		else:
 			index = candidate.val
 			self.remove(candidate.key)
 			free_space[index] -= key
-			free_space[index] = round(free_space[index],5)
-			if (free_space[index]) > 0.0:
-				x = self.insert(free_space[index], candidate.val) ##reinsert node with updated capactiy and the same value
-				x.brc = max(x.key, x.left.brc if x.left != None else 0, x.right.brc if x.right != None else 0)
+			free_space[index] = round(free_space[index], 8)
+			if (free_space[index]) > 0:
+				self.insert([free_space[index],index], index, None, None) ##reinsert node with updated capactiy and the same value
+				
 		#if no candidate, then insert
 		
 
@@ -371,11 +444,12 @@ class ZipZipTree:
 
 	#need an alg that finds left most node that fits fast
 	def get_first_fit(self, val: ValType) -> int:
+		brc_list = []
 		curr = self.root
 		if(curr == None):
-			print(f"curr is none at value {val}")
+			#print(f"curr is none at value {val}")
 			return
-		print(self.root.brc)
+		#print(self.root.brc)
 		#print(curr)
 		#we want LEFT MOST node that can fit the thing, so we only go right once we're out of lefts.
 		#how do we know we're leftmost and can fit?
@@ -383,43 +457,48 @@ class ZipZipTree:
 			#then check if left's brc >= item
 				#if yes to both, set curr to left and repeat process
 		while(curr != None):
-			print(f"curr node index is {curr.key}")
+			brc_list.append(curr)
+			#print(f"curr node index is {curr.key}")
 			if curr.left != None and curr.left.brc >= val:
 				curr = curr.left
 				#if no to either, and curr.val >= item, place it in this node.
 			elif curr.val >= val:
 				curr.val -= val
-				curr.val = round(curr.val, 5)
+				curr.val = round(curr.val, 8)
 				curr.brc = max(curr.val, curr.left.brc if curr.left != None else 0, curr.right.brc if curr.right != None else 0)
-				self.set_subtree_brc(self.root)
+				#self.set_subtree_brc(self.root)
+				#for node in brc_list:
+				#	print(f'node in brc_list {node}')
+				#print('end')
+				self.set_brc_list(brc_list)
 				return curr.key
 			else: #else, the value must be at right. set curr to curr.right
-				print(f"setting to right: {curr.right}")
+				#print(f"setting to right: {curr.right}")
 				curr = curr.right
-				print(curr)
-		print(f"exiting: curr is none for val: {val}")
-		print(self)
-		quit()
+				#print(curr)
+		#print(f"exiting: curr is none for val: {val}")
+		#print(self)
+		#quit()
 		
 		
 		
 		#keep going left until the brc is bigger than value, then check prev right.
 		
-# zzt = ZipZipTree(30)
+#zzt = ZipZipTree(30)
 
-# zzt.insert(1, 2)
+# zzt.insert(1, 2, None, 5)
 # #print(zzt.root)
 # print(zzt)
-# zzt.insert(3, 4)
+# zzt.insert(3, 4, None, 4)
 
 # print(zzt)
-# zzt.insert(5, 12)
+# zzt.insert(5, 12, None, 12)
 
 # print(zzt)
-# zzt.insert(56, 5)
+# zzt.insert(56, 5, None, 1)
 
 # print(zzt)
-# zzt.insert(22, 16)
+# zzt.insert(22, 16, None, 19)
 
 # print(zzt)
 # zzt.insert(52, 23)
@@ -456,4 +535,3 @@ class ZipZipTree:
 
 #for node in zzt.nodes:
 #	print(node)
-
